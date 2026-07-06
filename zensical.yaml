@@ -1,0 +1,63 @@
+site_name: cash-optimizer
+site_description: DraftKings NFL Cash Lineup Optimization Library
+docs_dir: docs/source
+build_dir: docs/build
+site_url: https://EricTruett.github.io/cash_optimizer/
+
+theme:
+  name: material
+  logo: assets/logo.png
+  favicon: assets/favicon.ico
+  features:
+    - navigation.instant
+    - navigation.tabs
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Guides:
+    - CLI: guides/cli.md
+    - GUI: guides/gui.md
+    - Python API: guides/python-api.md
+    - Governance Automation: guides/governance.md
+  - API Reference: api/reference.md
+  - Specification:
+    - Project Spec: specs/cash_optimizer_spec.md
+    - CLI Spec: specs/cli_spec.md
+    - GUI Spec: specs/gui_spec.md
+    - Implementation Tracker: specs/spec_implementation_tracker.md
+
+plugins:
+  - search:
+      lang: en
+  - social:
+      cards_layout: default/only_title
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tasklist
+  - pymdownx.highlight:
+      use_pygments: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - attr_list
+  - md_in_html
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/EricTruett/cash_optimizer
+  analytics:
+    provider: google
+    property: UA-XXXXXXXXX-X

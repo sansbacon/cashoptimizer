@@ -1,0 +1,6 @@
+# Documentation build requirements
+# Install with: pip install -r docs-requirements.txt
+
+mkdocs==1.6.1
+mkdocs-material==9.5.31
+pymdown-extensions==10.8

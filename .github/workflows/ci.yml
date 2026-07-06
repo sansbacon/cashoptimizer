@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test-and-benchmark:
+    runs-on: ubuntu-latest
+    env:
+      BENCH_PROFILE: "ci"
+      BENCH_THRESHOLD_SCALE: "1.0"
+      BENCH_SIMULATION_RUNS: "200"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Run tests
+        run: |
+          pytest -q
+
+      - name: Run benchmark guardrail
+        run: |
+          python examples/ci_benchmark_guardrail.py

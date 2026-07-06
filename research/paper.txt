@@ -1,0 +1,326 @@
+1 Introduction
+Fantasy sports is a game where participants take on the role of sports managers. They assemble virtual teams made out of real players. Prior to the actual matches, participants are given fixed budgets to compose their virtual lineups. Players then compete in a series of matches in the real world. Their performance is rated by the scoring rules designed by the fantasy game provider. These fantasy points are then added up over all players in the lineup and credited to the participant. Before entering the fantasy competition, participants need to pay an entrance fee. Fantasy sports provider takes some portion of the collected money and divides the rest between some percentage of top-ranking participants.
+
+The length of the fantasy competitions can vary significantly. Seasonal fantasy games span an entire season, with participants forming their team at the start of the season and making modifications throughout the season. They are paid out at the end of the season. Because in seasonal fantasy games, players need to wait a long time for the results, daily fantasy sports have emerged. They last for a shorter period, usually a maximum of one week. The player's performance from a single match is ranked, unlike in the season-long game where all matches are considered. In this work, we will focus exclusively on daily fantasy sports. More concretely, we will test our ideas on week-long tournaments in the English Premier League.
+
+2 Related work
+While the fantasy sports emerged in the past decades (Farquhar and Meeds, 2007; Lomax, 2012), several interesting works have already been published on the topic.
+
+Bonomo et al. (2014) used a linear program to maximize the lineup score at each round. For estimating the fantasy points of each player, averages of the points from the rounds already played were computed. The averages were weighed by three factors—home/away, the league table position of his next rival, and the current performance of the player. The linear program finds the lineup by maximizing the sum of the weighted averages of the individual players. The model was tested on Argentinian fantasy football game Gran DT and positioned among the top 0.2%.
+
+Matthews et al. (2012) formulated seasonal fantasy sports as a reinforcement learning problem. The author simplified the scoring rules to modeling the goals, assists, and appearances. They used a generative belief model to deal with the uncertainty over players' abilities where statistics from previous seasons were used as priors. They developed a fully automated agent for lineup selection for a season of English Premiere League. The agent was able to place in the top percentile of the competitors.
+
+Becker and Sun (2016) proposed a mixed-integer optimization model using diverse types of historical data such as fantasy drafts from expert articles and summary reports of actual owner draft behavior for several public fantasy contests. The model was not tested in an actual competition. Instead, the authors utilized the data to simulate the drafts of the other competitors. The model showed promising results, but it is not clear whether the model would be that successful in future tournaments against real opponents.
+
+Hunter et al. (2016) focused on the guaranteed prize pool tournaments with top-heavy payoff structures. The authors used publicly available player point predictions from the websites Rotogrinders and Daily Fantasy Nerd. A sequential integer program with a greedy algorithm is used to construct lineups subjected to constraints. To ensure diversity between the lineups, authors employed constraints on the number of players shared between each two lineups. The variance of fantasy points for each lineup was promoted by “stacking constraints”—a set of heuristic rules based on domain knowledge. The optimization involved maximizing both the expected value and variance of the fantasy points to maximize the probability of reaching high payouts. The algorithm constructed 200 lineups for each fantasy competition. The approach proved to be successful in real daily fantasy sports competitions.
+
+Newell (2017) has taken a slightly different approach and developed a stochastic integer program for optimizing the expected payout of a top-heavy tournament. Their program predicted each player's fantasy point distribution rather than predicting a single fantasy point value. The player's fantasy points were assumed to be independent and normally distributed. Therefore, the team's fantasy points should be normally distributed as well. This program was tested for each week of the 2016–2017 NFL DraftKings NFL Millionaire Maker contest. Most of the teams did not score enough fantasy points to reach even the lowest possible payout.
+
+Beliën et al. (2017) implemented an algorithm for selecting the best possible linup after the fantasy points are assigned to the players. The authors argue that such a model can be beneficial for the fantasy game provider. However, they admit that the model's usefulness for selecting the lineups for future games is limited.
+
+Landers and Duperrouzel (2018) focused on weekly NFL fantasy competitions. Their approach relied on forecasting players' fantasy points using gradient boosting trees. The authors engineered over 20 features that were used as inputs to the machine learning algorithms. For the lineup selection, authors used a greedy algorithm to select 100 lineups each week. The model outperformed randomly selected lineups and lineups based on linear regression of players' fantasy points.
+
+Haugh and Singal (2020) followed on Hunter et al.'s (2016) work. Authors also maximized the expected reward subject to portfolio constraints using a greedy algorithm. This work's significant improvement is the modeling of other participants' lineups and incorporating opponents' behavior into the lineup creation. The Dirichlet multinomial data-generating process was used to model opponents' lineups. The authors claim that we can reduce the optimization problem (with some simple assumptions and approximations) to a binary quadratic program. Expected fantasy points data were obtained through paid subscription from Fantasy Pros. An estimate of the correlation matrix was obtained from RotoViz. The proposed framework has been compared to stochastic benchmarks and tested on double-up and top-heavy daily fantasy sports contests in the 2017 and 2018 NFL seasons. The portfolio accounting with the opponent's behavior has earned a cumulative profit of $384.74 in 12 weeks.
+
+Bonello et al. (2019) aimed to improve the accuracy of predictions for the Fantasy Premier League by combining data from different sources such as statistical metrics, betting odds, news articles, blogs, and Twitter. The results showed that the combination of betting data, news articles, and blogs improved the predictive power of statistical predictors, but the inclusion of Twitter data faced challenges leading to inaccurate predictions. The model based solely on the historical statistics ranked among top 13% participants while the model incorporating the human feedback ranked among top 0.5%.
+
+Kotrba (2020) analyze the effect of choosing players from the teams that are, according to the bookmakers, likely to win their matches. While this heuristic is reasonable, as the number of available options can be overwhelming for a competitor, the authors conclude that it is overused and should only be used as a last resort. The participants should focus on finding less popular undervalued players.
+
+Beal et al. (2020) used linear regression and random forests for forecasting the fantasy points of NFL players. They compare their predictions to predictions available on Yahoo. While their predictions are inferior, the resulting model for selecting the best lineup made profit in over 80% of gameweeks.
+
+Maniezzo and Aspee Encina (2022) proposed a solution that utilizes a simple heuristic to assist participants in composing their lineups with limited computational resources, such as on their mobile phones. The suggested draft picks are based on the Sharpe ratio, which is the ratio between the mean and the variance of player's fantasy points.
+
+3 Estimating distribution of the fantasy points
+Our approach can be divided into two subsequent parts:
+1.matches simulation; and
+2.mixed-integer quadratic program (MIQP).
+In this section, we introduce the generative model for the simulation, and in the following section (Section 4), we describe the MIQP to create the desired portfolio of lineups.
+
+3.1 Model pipeline
+A high-level overview of our model is in Fig. 1. On the left side of the figure, we have input parameters and data. On the right side of the pipeline is the model's output, which is the portfolio of lineups. Inside the model, we have two major parts: Matches simulation and Solver. First, the model simulates tournament matches to obtain the predictions of players' mean fantasy points and the covariance matrix. These statistics are then passed to an optimization solver, which solves our mixed-integer quadratic program and produces a portfolio of lineups. This portfolio of lineups is the list of players we should select in the tournament. While the simulation is domain specific, the MIQP could be more easily adapted for different domains. We have implemented all parts of the model in Python 3 except for the mixed-integer quadratic program, for which we used Julia with the JuMP package (Dunning et al., 2017). JuMP allows us to write the optimization problem in a solver-independent way and supports many open-source and commercial solvers for a variety of problem classes. We have chosen Gurobi, as it supports quadratic programs and is considered to be one of the most powerful mathematical solvers.
+
+Details are in the caption following the image
+Fig. 1
+Open in figure viewer
+PowerPoint
+Model pipeline.
+3.2 Simulation
+In this subsection, we focus on the matches simulation aspect of the model, as depicted in Fig. 1.
+
+We model each player statistic separately in simulation submodels. Each of the submodels is a generative probabilistic model. The parameters of these submodels are fitted using historical data. These submodels are sampled in each iteration of the simulation.
+
+Our simulation architecture is highly modular, allowing us to easily replace any submodel with a different one. This allows us to evaluate the impact of individual submodels on the model's output, as well as compare it to ground truth. In this way, we can identify submodels that could significantly improve the overall performance of the pipeline, as well as those that have little effect on the final output.
+
+We chose to model goals and results separately because there is a large body of literature on modeling the results of soccer matches. In our simulation, we first sample from the result model, then determine the goalscorers.
+
+After repeating the simulation a specified number of times, we calculate the means and covariance matrix of the players' fantasy points in the fantasy points calculation block.
+
+3.2.1 Rosters model
+The rosters of competing teams are usually known before the tournament begins. If a player's start is uncertain (e.g., due to injury), the player is marked on the fantasy game provider's website. As it is not possible to retrospectively reconstruct the known information at the start of each tournament, we decided to use the actual rosters as an input to our model. Substitutes within the fantasy roster take only the place of selected players who did not start, and therefore are not relevant to our model.
+
+3.2.2 Results model
+For modeling the results of the matches we use the Double Poisson model. The Poisson distribution is commonly used for modeling the football scores (Ley et al., 2019). In the Double Poisson model, each team is assigned a strength parameter. From the teams strengths, the scoring rates λ for each team are computed as
+
+
+(1)
+where
+ is the strength of the home/away team and H is a parameter for home advantage.
+The teams' strengths and the home advantage parameter are found by maximizing the log-likelihood on historical data. For more details see Hubácek et al. (2021).
+
+The probability of final score is given by
+
+
+(2)
+where
+ are the goals scored by home/away team.
+In each simulation run, the result of a match is sampled from the Double Poisson distribution.
+
+3.2.3 Goals model
+For each player, we compute his scoring rate λ as
+
+(3)
+where
+ is the number of goals the player i scored in match j,
+ is the number of minutes the player played in match i, and M is number of matches.
+The Result model precedes the Goal model in our simulation. For each goal a team scored based on the Result model, the Goal model computes the probability of a player scoring the goal as
+
+(4)
+where
+ is the scoring rate of the player i and
+ is the sum of the scoring rates of the players from the same team roster.
+The goalscorer is then sampled from a categorical distribution
+(5)
+3.2.4 Assists model
+This model is implemented analogously to the Goals model. The goals scored in 3 are replaced with assists. Before the assisting player is drawn from the categorical distribution, a Bernoulli distribution is sampled to determine whether the goal was assisted or not. The parameter of the Bernoulli distribution is the relative number of assisted goals. The goalscorer cannot be awarded the points for the assist at the same time.
+
+3.2.5 Goalkeeper saves model
+The number of shots on goal a team will have is sampled from Poisson distribution as
+
+(6)
+where
+ is the number of shots on goal the team i had in match j and N is the number of matches team played. The number of saves is estimated as
+ where
+ is the number of goals conceded and
+ is the number of shots sampled for the opposing team.
+3.2.6 Impact model
+Points for impact are awarded to players whose teams won during the time period the player was on the pitch. Since we chose not to model substitutions, each player from the winning team according to the Results model is awarded a point for impact. This approach further favors players from teams that are more likely to win their matches.
+
+3.2.7 Yellow cards model
+The possible yellow card for each player is sampled using Bernoulli distribution as follows:
+
+(7)
+where
+ if player i received a yellow card in his match j and N is the number of matches player started in.
+4 Lineup portfolio optimization
+In this section, we present our formulation of a mixed-integer quadratic program for selecting a portfolio of lineups. First, we define our variables, and then we formulate feasibility constraints and our objective function.
+
+4.1 Variables and constants
+
+L   Number of lineups
+Np  Number of players
+Nt  Number of teams
+Matrix indicating player i was selected into lineup j
+
+Columns of matrix X ordered into one vector
+Subsets of xi with only goalkeepers, defenders, midfielders, or forwards included
+
+Vector with players' fantasy point predictions
+
+Mean predictions repeated L times in one vector
+Σ   Players covariance matrix
+Σ0  Players Pearson covariance matrix with zeros on the diagonal
+c   Vector with players' prices
+C   Budget limit
+
+Matrix indicating that player i is in the team j
+Optimization coefficients
+4.2 Feasibility constraints
+Every lineup must comply with fantasy provider rules in order to be a valid lineup. We formulate all necessary FanTeam rules as linear constraints here:
+
+financial constraint:
+(8)
+eleven players in one lineup:
+(9)
+one goalkeeper in one lineup:
+(10)
+three to five defenders in one lineup:
+(11)
+two to five midfielders in one lineup:
+(12)
+one to three forwards in one lineup:
+(13)
+maximum three players from a single team in one lineup:
+(14)
+4.3 Objective function
+Due to the top-heavy payout structure, our goal is to maximize the probability of having at least one extraordinary lineup, which will arrange most of the profit. Therefore, we will maximize not only fantasy points but also fantasy points variance. To cover a wider pool of options, we also do not want players to overlap between lineups. We will call this a lineup correlation. In each lineup, we want to have players that have a positive influence on each other. Those are, for example, players from the same team, where if one scores, some other player will probably receive fantasy points for the assist. On the contrary, we do not want to have players with a negative influence on each other in our lineup (such as a goalkeeper and forward from opposing teams). We will refer to this as players' covariance.
+
+The goals of our objective function are summarized here:
+1.maximize players' fantasy points;
+2.minimize lineup correlation;
+3.maximize players' variance;
+4.maximize players' covariance.
+We have created an objective function to reflect all of these goals. The goals are building on the approach taken by Hunter et al. (2016). The objective function is a sum of four terms, each reflecting one of the goals. Our objective function is in Equation (15):
+
+
+
+(15)
+All of our constraints are linear and all of our variables are binary. The objective function is a sum of linear and quadratic forms. We can rewrite
+ to see this more clearly. Therefore, we see that our optimization problem is a mixed-integer quadratic program.
+
+The first term xTm maximizes fantasy points means. The second term −1TXTX1 minimizes correlation between lineups. We multiply all lineups together, so when a player is in both lineups, the multiplication result is one and the correlation increases, zero otherwise. Elements on the diagonal of Σ are player variances, so the third term
+ maximizes player variances for each lineup. The last term
+ is a sum of quadratic forms, where each form maximizes the positive correlation of players inside the lineup. With this term, we can model the positive and negative influences of both teammates and opponents.
+
+Even though our objective function now reflects our goals, it is not suitable for optimization directly in its present form. Each of the terms has different minimum and maximum boundaries, and so the range of values varies significantly. The terms are in different units. For example, the first term maximizes the fantasy points, but the second term counts how many lineups are correlated. Some of these terms can then have a much more significant effect on the objective value, which is not desirable. Therefore, we need to scale each of the terms to control its relative impact on the objective. We will scale each term with bijective mapping to the interval: [0,1]. The formula for the bijective mapping is
+
+(16)
+where x is the scaled term. We see that we need to know the minimum and maximum of the terms. Fortunately, we always know this information prior to the optimization. We summarize the boundaries of the terms in the following equations:
+(17)
+(18)
+
+(19)
+
+(20)
+We do not need to calculate minimum and maximum for Equation (20), as we know the limits for the Pearson correlation coefficient are [ − 1, 1]. The final normalized objective function is in Equation (21):
+
+
+
+
+
+
+(21)
+To increase or decrease the effect of each term, we added four hyperparameters:
+, and δ. We will refer to the terms of the objective functions as the alpha term, beta term, gamma term, and delta term.
+
+The solution of our mixed-integer quadratic program will be L most promising lineups. Unfortunately, the number of quadratic objective terms grows rapidly with the increasing number of players and lineups. The number of quadratic terms for the beta term is
+
+. If we use the big O notation: O(L2Np). We see that quadratic terms grow quadratically in the number of lineups times the number of players. For the gamma term, the number of quadratic terms is equal to
+
+, in the big O notation:
+. Alpha and delta terms are linear.
+
+To limit the number of gamma quadratic terms, we introduce coefficient pc. We set pc value in the interval [0,1], and its purpose is to null elements of matrix Σ0, whose absolute value is smaller than pc. By nulling small Σ0 values, we can reduce the number of gamma quadratic terms considerably and thus simplify the problem.
+
+The number of players (Np) is fixed and will not change in any of our tests. On the other hand, the number of lineups (L) is a parameter that we set to the solver. Therefore, with setting higher L, we will need to make more effort to find optimal solver parameters. We also need to find optimal values for hyperparameters
+, and δ. Setting all of them to one would mean that each term has the same weight on the objective function. But it might be that some terms are much more important than others. We will discuss the impacts of changing these optimization parameters in the next section.
+
+5 Experiments
+In this section, we introduce the experiments we conducted and describe the data used in the experiments.
+
+5.1 Data
+We have decided to test our approach on the FanTeam Premier League main tournaments. The Premier League is the top league in the English football league system and is one of the most watched sports leagues in the world, therefore the fantasy user base is very significant. The FanTeam scoring rules are summarized in Table 1.
+
+Table 1. FanTeam football scoring rules
+Event   Points
+Midfielder or attacker plays the full match 1
+Forward scores a goal   4
+Midfielder scores a goal    5
+Defender scores a goal  6
+Goalkeeper scores a goal    8
+Assist or Fantasy Assist1   3
+Midfielder keeps a clean sheet  1
+Defender keeps a clean sheet    4
+Goalkeeper keeps a clean sheet  4
+Goalkeeper or defender concedes 2 goals −1
+Score an own goal   −2
+Penalty miss    −2
+Goalkeeper made a save  0.5
+Goalkeeper saves penalty    5
+Playing time up to 60 minutes   1
+Playing time over 60 minutes    1
+Yellow card −1
+Red card    −3
+Scoring free kick caused    −2
+Caused a penalty    −2
+Impact = Team “wins” in the period player is on the pitch   1
+Impact = Team “loses” in the period player is on the pitch  −1
+1 Fantasy Assist is the second to last assist in the play leading to a goal.
+FanTeam's main tournaments run every week of the season (38 in total), and they offer four different prize pools every week. Each tournament consists of 8–10 Premier League matches taking place that week. There are four tournaments every week, each differing in prize pools and buy-ins. The number of participants also changes as the season progresses. We show the average weekly prize pools, buy-ins, fees, and number of entrants (participants) for every tournament type in Table 2. We can see that the number of entrants depends on the buy-in. Most notably, tournament type 4 with buy-in over €100, usually has only around 26 entrants. The number of lineups we create will need to reflect the tournament type. With an increasing buy-in, the number of lineups will probably have to be set smaller.
+
+Table 2. FanTeam weekly tournament types and their average statistics
+Tournament type Buy-in  Prize pool  Fee Entrants
+1   €1  €2224   €0.1    1866
+2   €3  €4044   €0.3    1199
+3   €10 €21,351 €1.0    1654
+4   €101.5  €2802   €8.5    26
+The FanTeam website provides historical records from the EPL, including statistics of each player. These statistics were used to estimate the parameters of the submodels. The data are available in a public repository (Mlčoch and Hubáček, 2023).
+
+5.2 Validation
+In the validation phase, we searched for the optimal hyperparameters of our objective function. These hyperparameters are
+, and pc. As we had tournament data only for season 2018/2019, we had to validate and test our model only on this one season. We used game weeks 20–28 for hyperparameter search (validation) and game weeks 29–38 for testing. We used 10,000 as the number of samples in the simulation part of the model. The explored grid search values are summarized in Table 3.
+
+Table 3. Grid search values
+Hyperparameter  Possible values
+α   1
+β   0.5, 1, 1.5, 2, 3
+γ   0.5, 1, 1.5, 2, 3
+δ   0.5, 1, 1.5, 2, 3
+pc  0.1, 0.2, 0.3
+L   1–40, 50
+We fixed α to 1 and only varied the other parameters. We set the steps between our coefficients pretty wide. This is because the grid search with tiny steps would require much more time. A benefit of these bigger steps is that they help prevent overfitting the model. For each set of parameters, our model output a portfolio of lineups. We calculated the fantasy points the lineup would win and compared the achieved fantasy points with actual fantasy points scored by other participants. We were able to position our lineup among real participants and determine the ranks and profits of our lineups. Profits take buy-in into account, so the profit can be negative. We used multiple metrics to evaluate each portfolio from our model:
+Portfolio profit: It is the total profit of all lineups. Most important metric, it tells us whether our model is profitable.
+Total points: It is the mean of fantasy points from all lineups. We want to increase total points. For tournaments with less participants, less points suffice to win the tournament.
+Lineup correlation: It is the correlation of players between lineups. Zero means no correlation (no player is in multiple lineups).
+Best rank: Best ranked lineup in the competition. Due to the top-heavy distribution, our goal is not solely in increasing ranks for all lineups, but rather trying to get one extraordinary lineup which will rank very well.
+Projected variance: It is the mean of projected variance from all lineups.
+Each of our coefficients influences these metrics in some way. We show influence of β and γ in Fig. 2a and b, where we show means of the statistics over all tournaments. In the Fig. 2a, we see that increasing β will result in decreasing lineup correlation. In the Fig. 2b, we see that increasing γ will result in increasing projected variance. This proves that the terms in the objective function behave as expected. With parameters
+, and δ, we can control our lineup formation strategy.
+
+Details are in the caption following the image
+Fig. 2
+Open in figure viewer
+PowerPoint
+Hyperparameters effect.
+5.2.1 Gurobi solver parameters
+Because solving the quadratic program for higher L was a more significant challenge for the Gurobi solver, we also had to find optimal configuration parameters for the solver. The most important parameter we set was MIPFocus, which adjusts the high-level MIP solution strategy. To limit solving time, we set TimeLimit, which limits the total time spent. When the solver struggled to find an optimal solution, we slightly increased MIPGap. The MIPGap sets the relative MIP optimality gap. By default, we have used MIPFocus = 1, TimeLimit = 1500, and MIPGap = 0.0005. In case Gurobi did not find a solution, we increased the TimeLimit to 5000 and/or changed the MIPFocus to 0 or 2. We also tried increasing the MIPGap up to 0.003.
+
+5.3 Test
+We tested the model on game weeks 29–38. For each tournament type, we chose the set of hyperparameters that achieved the highest profit on the validation data. Even though tournaments from the same weeks usually have the same real matches included, each tournament type has a different buy-in, prize pool, and consequently, a different number of participants. These statistics are summarized in Table 2. Our competition with other participants varies with the tournament type. Therefore, we need to consider each tournament type separately. The most important parameter that we need to change with the tournament type is L. For example, setting L = 30 for tournament type 4 would not make any sense since the average number of participants for tournament type 4 is below 30. Testing hyperparameters are summarized in Table 4.
+
+Table 4. Hyperparameters selected for test set
+Tournament type α   β   γ   δ   pc  L
+1   1   2   1   1   0.2 35
+2   1   2   1   1   0.2 35
+3   1   1   1.5 1.5 0.1 50
+4   1   1   0.5 1   0.1 3
+6 Results and discussion
+In Figs. 3-6, we show the performance of our model for validation and testing data. The validation plots are on the left, and the testing plots are on the right. We plot the accumulated profit over time, starting from zero profit, and adding or deducting the profit achieved in each game week. In addition to the accumulated profit, we also plot all portfolio profits as a boxplot for each week. We can observe the average profit and, more importantly, whether there were some significant outliers. Note that there were no tournaments during game weeks 31 and 33, and tournament type 4 was not played in game weeks 25 and 26. Furthermore, we are missing game weeks 29 and 30 for tournament type 3, as the solver was unable to find the optimal solution within our limits (MIPGap = 0.003 and TimeLimit = 5000). The high number of lineups probably caused this difficulty.
+
+Details are in the caption following the image
+Fig. 3
+Open in figure viewer
+PowerPoint
+Cumulative profit for tournament type 1.
+Details are in the caption following the image
+Fig. 4
+Open in figure viewer
+PowerPoint
+Cumulative profit for tournament type 2.
+Details are in the caption following the image
+Fig. 5
+Open in figure viewer
+PowerPoint
+Cumulative profit for tournament type 3.
+Details are in the caption following the image
+Fig. 6
+Open in figure viewer
+PowerPoint
+Cumulative profit for tournament type 4.
+The most important result is that all tests ended in profit. As the tournaments are independent, we could have participated in all of the tournaments without interfering with each other. If we had used our model in the 2018/2019 FanTeam tournaments, we would have achieved an accumulated profit of €2439.14 from the last eight tournaments of the season.
+
+From the boxplots, we can see that the weekly profit average is always very close to zero. We can also see that a few outliers very often secured the profit. This is in line with our strategy of maximizing the probability of having at least a few exceptional lineups in the portfolio that will secure most of the profit.
+
+We achieved the best results in all of our simulations with most of the objective function hyperparameters close to 1. This signifies that we did our normalization correctly, and all of the terms have similar significance. For tournament types 1 and 2, the same hyperparameters proved to be the best on the validation data. It is not a big surprise as tournament types 1 and 2 are very similar, and therefore the same configuration should work for both types. For these tournament types, we used 35 as the number of lineups and 2 as β, which puts more weight on minimizing the lineup correlation.
+
+For tournament type 3, we used the largest number of lineups (50). With the higher number of lineups, higher variance (
+) and maximizing players' correlation (
+) proved beneficial.
+
+It is a small surprise that the highest profit (€1384.74) was achieved in tournament type 4. We expected that the approach of maximizing variance and minimizing lineup correlation would come into effect more significantly with more lineups in other tournament types. On the other hand, fewer participants make the competition smaller, and fewer fantasy points are needed to win. Also, with lower γ, the model focused less on the variance and produced more moderate but stable results.
+
+7 Conclusion
+We can conclude that our approach proved successful. If used in practice, our model would accumulate a profit of €2439.14 in the final eight weeks of the 2018/2019 Premier League season with an investment of €7133, resulting in return on investment of over 34%. Our quadratic program is suitable for creating a portfolio of lineups for tournaments with top-heavy payout distribution. By sampling probabilistic models, we obtained players' fantasy point distributions, allowing us to model the relationships between players. We maximized the covariance directly in the objective function together with players' expected fantasy points means and variance. We also minimized the lineup correlation in the objective function. We see our approach as a considerable improvement to previous integer linear programs. In comparison to most of the previous work, our approach contains the full pipeline with both creating the fantasy point predictions and the subsequent lineups optimization.
+
+As we used quite basic prior models to model the fantasy players' statistics, the model can be improved with more complex probabilistic models. This is made easy due to our modular architecture, which allows each fantasy rule to be modeled separately. The advantage of our generative model is that it does not place any assumptions on the distribution of the player's fantasy points. It could be very interesting to include data about other participants' historical lineups in the model and use them to model the opponents' behavior. Another possible improvement would be to explore more settings for the objective function hyperparameters and investigate their effect on the tournament rankings and profit.
+
+Because we do not need to specify any heuristic rules for our quadratic program, it is not domain specific and can be easily modified and used in other sports or in entirely different domains.

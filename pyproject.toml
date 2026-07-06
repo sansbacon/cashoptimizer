@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cash-optimizer"
+version = "0.1.0"
+description = "DraftKings NFL cash lineup optimization library"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "ortools>=9.10",
+  "numpy>=1.26",
+  "highspy>=1.8",
+  "click>=8.1",
+]
+
+[project.scripts]
+cash-optimizer = "cash_optimizer_cli.main:cli"
+cash-optimizer-gui = "cash_optimizer_gui.app:main"
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "pytest-qt>=4.4",
+]
+gui = [
+  "PySide6>=6.7",
+]
+docs = [
+  "mkdocs>=1.6",
+  "mkdocs-material>=9.5",
+  "pymdown-extensions>=10.8",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
